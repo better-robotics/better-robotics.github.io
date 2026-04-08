@@ -1,1 +1,1584 @@
-hello world
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>BetterRobotics — Control Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0c10;
+  --surface: #12151c;
+  --surface-2: #1a1e28;
+  --surface-3: #222836;
+  --border: #2a3040;
+  --border-light: #363e52;
+  --text: #e8eaf0;
+  --text-muted: #7a8299;
+  --text-dim: #4a5270;
+  --accent: #0577B1;
+  --accent-glow: rgba(5, 119, 177, 0.15);
+  --accent-bright: #2a9fd6;
+  --green: #34d399;
+  --green-dim: rgba(52, 211, 153, 0.12);
+  --orange: #E89923;
+  --orange-dim: rgba(232, 153, 35, 0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.12);
+  --navy: #012169;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: 'Outfit', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+
+.brand-accent { color: var(--accent-bright); }
+
+html, body {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Boot / Connection Screen ── */
+
+.boot-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.boot-screen.hidden {
+  opacity: 0;
+  transform: scale(1.02);
+  pointer-events: none;
+}
+
+.boot-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--navy));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  box-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(1, 33, 105, 0.2);
+  animation: logoPulse 2s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%, 100% { box-shadow: 0 0 60px var(--accent-glow), 0 0 120px rgba(1, 33, 105, 0.2); }
+  50% { box-shadow: 0 0 80px rgba(5, 119, 177, 0.25), 0 0 160px rgba(1, 33, 105, 0.3); }
+}
+
+.boot-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.boot-title span {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.boot-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+}
+
+.boot-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: all 0.4s ease;
+}
+
+.boot-step.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--text);
+}
+
+.boot-step.done {
+  border-color: var(--green);
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.boot-step .icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.boot-step.active .icon { background: rgba(5, 119, 177, 0.2); }
+.boot-step.done .icon { background: rgba(52, 211, 153, 0.15); }
+
+.boot-skip {
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  transition: color 0.2s;
+}
+.boot-skip:hover { color: var(--text-muted); }
+
+/* ── Main Layout ── */
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-rows: 56px 1fr;
+  grid-template-columns: 1fr 360px;
+  opacity: 0;
+  transition: opacity 0.5s ease 0.2s;
+}
+
+.app.visible { opacity: 1; }
+
+/* ── Top Bar ── */
+
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  z-index: 10;
+}
+
+.topbar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--navy));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.topbar-name {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.topbar-device {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.topbar-spacer { flex: 1; }
+
+.connection-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connection-badge.local {
+  background: var(--orange-dim);
+  color: var(--orange);
+  border: 1px solid rgba(232, 153, 35, 0.2);
+}
+
+.connection-badge.online {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.topbar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s;
+}
+.topbar-btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: var(--border-light);
+}
+
+/* ── Main Panel ── */
+
+.main-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* ── Card ── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.card-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+
+.card-body {
+  padding: 16px;
+}
+
+/* ── Joystick ── */
+
+.drive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.joystick-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.joystick-zone {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+  transition: border-color 0.2s;
+}
+
+.joystick-zone:active { cursor: grabbing; }
+
+.joystick-zone::before {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  width: 1px;
+  height: 70%;
+  background: var(--border);
+  transform: translate(-50%, -50%);
+}
+
+.joystick-zone::after {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  width: 70%;
+  height: 1px;
+  background: var(--border);
+  transform: translate(-50%, -50%);
+}
+
+.joystick-knob {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-bright));
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 20px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.3);
+  transition: box-shadow 0.2s;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.joystick-zone:active .joystick-knob,
+.joystick-zone.active .joystick-knob {
+  box-shadow: 0 0 30px rgba(5, 119, 177, 0.3), 0 2px 12px rgba(0,0,0,0.4);
+}
+
+.joystick-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.motor-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.motor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.motor-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 48px;
+  font-family: var(--mono);
+}
+
+.motor-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.motor-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  width: 50%;
+  transition: width 0.1s ease, background 0.2s;
+  position: absolute;
+  left: 50%;
+  transform-origin: left center;
+}
+
+.motor-bar-fill.reverse {
+  transform-origin: right center;
+  left: auto;
+  right: 50%;
+}
+
+.motor-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  width: 48px;
+  text-align: right;
+  color: var(--accent-bright);
+}
+
+/* ── Sensors ── */
+
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.sensor-tile {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sensor-icon {
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+}
+
+.sensor-value {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.sensor-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sensor-value.warn { color: var(--orange); }
+.sensor-value.danger { color: var(--red); }
+
+/* ── Camera ── */
+
+.camera-feed {
+  aspect-ratio: 16/10;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  position: relative;
+  overflow: hidden;
+}
+
+.camera-feed::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,0.015) 2px,
+      rgba(255,255,255,0.015) 4px
+    );
+  pointer-events: none;
+}
+
+.camera-icon { font-size: 32px; opacity: 0.4; }
+
+.camera-rec {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--red);
+  font-weight: 500;
+}
+
+.camera-rec::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: dotPulse 1s ease-in-out infinite;
+}
+
+.camera-fps {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.camera-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* ── Side Panel ── */
+
+.side-panel {
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.side-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.side-tab {
+  flex: 1;
+  padding: 14px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  position: relative;
+  font-family: var(--font);
+}
+
+.side-tab:hover { color: var(--text-muted); }
+
+.side-tab.active {
+  color: var(--text);
+}
+
+.side-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.side-tab.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.side-tab .lock-icon {
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.side-content {
+  flex: 1;
+  overflow-y: auto;
+  display: none;
+}
+
+.side-content.active { display: flex; flex-direction: column; }
+
+/* ── Log Panel ── */
+
+.log-entries {
+  flex: 1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  display: flex;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  animation: logIn 0.3s ease;
+}
+
+@keyframes logIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.log-time { color: var(--text-dim); flex-shrink: 0; }
+.log-msg { color: var(--text-muted); }
+.log-entry.info .log-msg { color: var(--accent-bright); }
+.log-entry.warn .log-msg { color: var(--orange); }
+.log-entry.error .log-msg { color: var(--red); }
+.log-entry.success .log-msg { color: var(--green); }
+
+/* ── AI Panel ── */
+
+.ai-locked {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px;
+  text-align: center;
+}
+
+.ai-locked-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.ai-locked-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ai-locked-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.ai-connect-btn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent-bright);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-connect-btn:hover {
+  background: rgba(5, 119, 177, 0.25);
+}
+
+.ai-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-messages {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.ai-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  animation: logIn 0.3s ease;
+}
+
+.ai-msg.assistant {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.ai-msg.user {
+  background: var(--accent);
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.ai-input-row {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+}
+
+.ai-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ai-input:focus { border-color: var(--accent); }
+.ai-input::placeholder { color: var(--text-dim); }
+
+.ai-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.ai-send:hover { background: var(--accent-bright); }
+
+/* ── WiFi Settings Panel ── */
+
+.wifi-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wifi-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.wifi-status-icon {
+  font-size: 20px;
+}
+
+.wifi-status-text {
+  flex: 1;
+}
+
+.wifi-status-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.wifi-status-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.wifi-networks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wifi-network-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.wifi-network {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 14px;
+}
+
+.wifi-network:hover {
+  background: var(--surface-3);
+  border-color: var(--border-light);
+}
+
+.wifi-network.connected {
+  border-color: var(--green);
+  background: var(--green-dim);
+}
+
+.wifi-signal {
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.wifi-network-name { flex: 1; font-weight: 500; }
+
+.wifi-lock { font-size: 11px; color: var(--text-dim); }
+
+.wifi-connected-check { color: var(--green); font-weight: 600; font-size: 13px; }
+
+/* ── WiFi Modal ── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.modal-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transform: translateY(8px);
+  transition: transform 0.2s ease;
+}
+
+.modal-overlay.visible .modal { transform: translateY(0); }
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.modal-input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+}
+
+.modal-input:focus { border-color: var(--accent); }
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.modal-btn:hover { background: var(--surface-3); color: var(--text); }
+
+.modal-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.modal-btn.primary:hover { background: var(--accent-bright); }
+
+/* ── Responsive ── */
+
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 56px 1fr auto;
+  }
+  .side-panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 300px;
+  }
+  .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+  .drive-grid { grid-template-columns: 1fr; }
+  .joystick-zone { width: 160px; height: 160px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Boot Sequence -->
+<div class="boot-screen" id="bootScreen">
+  <div class="boot-logo">&#9881;</div>
+  <div class="boot-title">
+    Better<span class="brand-accent">Robotics</span>
+    <span>Connecting to your robot...</span>
+  </div>
+  <div class="boot-steps">
+    <div class="boot-step" id="step1">
+      <div class="icon">&#9678;</div>
+      <div>Scanning for device puck...</div>
+    </div>
+    <div class="boot-step" id="step2">
+      <div class="icon">&#9678;</div>
+      <div>Joining BetterRobotics-7X3K</div>
+    </div>
+    <div class="boot-step" id="step3">
+      <div class="icon">&#9678;</div>
+      <div>Loading control interface</div>
+    </div>
+  </div>
+  <button class="boot-skip" onclick="skipBoot()">Skip animation</button>
+</div>
+
+<!-- WiFi Password Modal -->
+<div class="modal-overlay" id="wifiModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Connect to WiFi</div>
+    <div class="modal-field">
+      <div class="modal-label">Network</div>
+      <div class="modal-input" style="color: var(--text-muted);" id="modalNetwork">—</div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Password</div>
+      <input class="modal-input" type="password" placeholder="Enter password" id="modalPassword">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="connectWifi()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div class="app" id="app">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-logo">&#9881;</div>
+    <div class="topbar-name">Better<span class="brand-accent">Robotics</span></div>
+    <div class="topbar-device">HERD-7X3K</div>
+    <div class="topbar-spacer"></div>
+    <div class="connection-badge local" id="connBadge" onclick="switchTab('wifi')">
+      <div class="connection-dot"></div>
+      <span id="connLabel">AP Mode — No Internet</span>
+    </div>
+    <button class="topbar-btn" onclick="switchTab('wifi')" title="WiFi Settings">&#9881;</button>
+  </div>
+
+  <!-- Main Control Panel -->
+  <div class="main-panel">
+    <!-- Camera -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Camera</div>
+        <div class="card-badge">ESP32-CAM</div>
+      </div>
+      <div class="card-body" style="padding: 8px;">
+        <div class="camera-feed">
+          <div class="camera-noise"></div>
+          <div class="camera-rec">REC</div>
+          <div class="camera-fps">24 FPS</div>
+          <div class="camera-icon">&#9711;</div>
+          <div>Camera stream — 192.168.4.1:81</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drive Controls + Motors -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Drive</div>
+        <div class="card-badge">L298N</div>
+      </div>
+      <div class="card-body">
+        <div class="drive-grid">
+          <div class="joystick-container">
+            <div class="joystick-zone" id="joystick">
+              <div class="joystick-knob" id="knob"></div>
+            </div>
+            <div class="joystick-label">Touch or drag to drive</div>
+          </div>
+          <div class="motor-readout">
+            <div class="motor-row">
+              <div class="motor-label">L MTR</div>
+              <div class="motor-bar-track">
+                <div class="motor-bar-fill" id="motorL"></div>
+              </div>
+              <div class="motor-value" id="motorLVal">0%</div>
+            </div>
+            <div class="motor-row">
+              <div class="motor-label">R MTR</div>
+              <div class="motor-bar-track">
+                <div class="motor-bar-fill" id="motorR"></div>
+              </div>
+              <div class="motor-value" id="motorRVal">0%</div>
+            </div>
+            <div style="margin-top: 8px;">
+              <div class="motor-row">
+                <div class="motor-label" style="color: var(--text-dim);">ENC L</div>
+                <div style="flex:1"></div>
+                <div class="motor-value" id="encL" style="color: var(--text-muted);">0 ticks</div>
+              </div>
+              <div class="motor-row" style="margin-top: 6px;">
+                <div class="motor-label" style="color: var(--text-dim);">ENC R</div>
+                <div style="flex:1"></div>
+                <div class="motor-value" id="encR" style="color: var(--text-muted);">0 ticks</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sensors -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Sensors</div>
+        <div class="card-badge">LIVE</div>
+      </div>
+      <div class="card-body">
+        <div class="sensor-grid">
+          <div class="sensor-tile">
+            <div class="sensor-icon">&#9636;</div>
+            <div class="sensor-value" id="sensorDist">42<span style="font-size: 13px; color: var(--text-muted);"> cm</span></div>
+            <div class="sensor-label">Distance (HC-SR04)</div>
+          </div>
+          <div class="sensor-tile">
+            <div class="sensor-icon">&#9673;</div>
+            <div class="sensor-value" id="sensorIR">1</div>
+            <div class="sensor-label">IR Detect</div>
+          </div>
+          <div class="sensor-tile">
+            <div class="sensor-icon">&#8982;</div>
+            <div class="sensor-value" id="sensorSpeed">0.0<span style="font-size: 13px; color: var(--text-muted);"> m/s</span></div>
+            <div class="sensor-label">Speed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side Panel -->
+  <div class="side-panel">
+    <div class="side-tabs">
+      <button class="side-tab active" data-tab="log" onclick="switchTab('log')">Log</button>
+      <button class="side-tab" data-tab="ai" onclick="switchTab('ai')">
+        AI
+        <span class="lock-icon" id="aiLock">&#128274;</span>
+      </button>
+      <button class="side-tab" data-tab="wifi" onclick="switchTab('wifi')">WiFi</button>
+    </div>
+
+    <!-- Log Tab -->
+    <div class="side-content active" data-content="log">
+      <div class="log-entries" id="logEntries"></div>
+    </div>
+
+    <!-- AI Tab -->
+    <div class="side-content" data-content="ai">
+      <!-- Locked state -->
+      <div class="ai-locked" id="aiLocked">
+        <div class="ai-locked-icon">&#129302;</div>
+        <div class="ai-locked-title">AI Assistant</div>
+        <div class="ai-locked-desc">
+          Connect to WiFi to enable the AI assistant. It can help you navigate, avoid obstacles, or explain what your sensors are seeing.
+        </div>
+        <button class="ai-connect-btn" onclick="switchTab('wifi')">Connect to WiFi</button>
+      </div>
+      <!-- Unlocked state -->
+      <div class="ai-chat" id="aiChat" style="display:none;">
+        <div class="ai-messages" id="aiMessages"></div>
+        <div class="ai-input-row">
+          <input class="ai-input" id="aiInput" placeholder="Ask about your robot..." onkeydown="if(event.key==='Enter')sendAiMsg()">
+          <button class="ai-send" onclick="sendAiMsg()">&#10148;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WiFi Tab -->
+    <div class="side-content" data-content="wifi">
+      <div class="wifi-panel">
+        <div class="wifi-status" id="wifiStatus">
+          <div class="wifi-status-icon">&#128225;</div>
+          <div class="wifi-status-text">
+            <div class="wifi-status-title" id="wifiStatusTitle">AP Mode</div>
+            <div class="wifi-status-sub" id="wifiStatusSub">Direct connection — no internet</div>
+          </div>
+        </div>
+        <div class="wifi-networks">
+          <div class="wifi-network-title">Available Networks</div>
+          <div class="wifi-network" onclick="openModal('DukeOpen')">
+            <div class="wifi-signal">&#9636;</div>
+            <div class="wifi-network-name">DukeOpen</div>
+          </div>
+          <div class="wifi-network" onclick="openModal('eduroam')">
+            <div class="wifi-signal">&#9636;</div>
+            <div class="wifi-network-name">eduroam</div>
+            <div class="wifi-lock">&#128274;</div>
+          </div>
+          <div class="wifi-network" onclick="openModal('Home-WiFi-5G')">
+            <div class="wifi-signal">&#9636;</div>
+            <div class="wifi-network-name">Home-WiFi-5G</div>
+            <div class="wifi-lock">&#128274;</div>
+          </div>
+          <div class="wifi-network" onclick="openModal('iPhone (Jonas)')">
+            <div class="wifi-signal">&#9636;</div>
+            <div class="wifi-network-name">iPhone (Jonas)</div>
+            <div class="wifi-lock">&#128274;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let isOnline = false;
+let bootDone = false;
+let motorLVal = 0;
+let motorRVal = 0;
+let encL = 0;
+let encR = 0;
+
+// ── Boot Sequence ──
+function runBoot() {
+  const steps = [
+    { el: 'step1', delay: 600 },
+    { el: 'step2', delay: 1800 },
+    { el: 'step3', delay: 3000 },
+  ];
+
+  steps.forEach(({ el, delay }) => {
+    setTimeout(() => {
+      document.getElementById(el).classList.add('active');
+    }, delay);
+    setTimeout(() => {
+      document.getElementById(el).classList.remove('active');
+      document.getElementById(el).classList.add('done');
+    }, delay + 1000);
+  });
+
+  setTimeout(() => {
+    finishBoot();
+  }, 4400);
+}
+
+function skipBoot() {
+  finishBoot();
+}
+
+function finishBoot() {
+  if (bootDone) return;
+  bootDone = true;
+  document.getElementById('bootScreen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  startSimulation();
+  addLog('success', 'Connected to BetterRobotics-7X3K');
+  addLog('info', 'WebSocket open — ws://192.168.4.1/ws');
+  addLog('info', 'Camera stream available on :81');
+  setTimeout(() => addLog('info', 'HC-SR04 ranging at 10 Hz'), 500);
+  setTimeout(() => addLog('info', 'Encoders active — 2 channels'), 800);
+  setTimeout(() => addLog('warn', 'No internet — AI features unavailable'), 1400);
+}
+
+runBoot();
+
+// ── Tab Switching ──
+function switchTab(tab) {
+  document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.side-tab[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.side-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.side-content[data-content="${tab}"]`).classList.add('active');
+}
+
+// ── Joystick ──
+const joystick = document.getElementById('joystick');
+const knob = document.getElementById('knob');
+let dragging = false;
+
+function handleJoystick(e) {
+  const rect = joystick.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const radius = rect.width / 2 - 28;
+
+  let clientX, clientY;
+  if (e.touches) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+
+  let dx = clientX - cx;
+  let dy = clientY - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > radius) {
+    dx = (dx / dist) * radius;
+    dy = (dy / dist) * radius;
+  }
+
+  knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+  // Convert to motor values (differential drive)
+  const forward = -dy / radius; // up = forward
+  const turn = dx / radius;     // right = turn right
+
+  motorLVal = Math.max(-1, Math.min(1, forward + turn));
+  motorRVal = Math.max(-1, Math.min(1, forward - turn));
+
+  updateMotorDisplay();
+}
+
+function updateMotorDisplay() {
+  const lEl = document.getElementById('motorL');
+  const rEl = document.getElementById('motorR');
+  const lValEl = document.getElementById('motorLVal');
+  const rValEl = document.getElementById('motorRVal');
+
+  [
+    [motorLVal, lEl, lValEl],
+    [motorRVal, rEl, rValEl],
+  ].forEach(([val, bar, label]) => {
+    const pct = Math.abs(val) * 50;
+    bar.style.width = pct + '%';
+    if (val < 0) {
+      bar.classList.add('reverse');
+      bar.style.background = 'var(--orange)';
+    } else {
+      bar.classList.remove('reverse');
+      bar.style.background = 'var(--accent)';
+    }
+    label.textContent = Math.round(val * 100) + '%';
+    label.style.color = val < 0 ? 'var(--orange)' : 'var(--accent-bright)';
+  });
+}
+
+joystick.addEventListener('mousedown', (e) => {
+  dragging = true;
+  joystick.classList.add('active');
+  handleJoystick(e);
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (dragging) handleJoystick(e);
+});
+
+window.addEventListener('mouseup', () => {
+  if (dragging) {
+    dragging = false;
+    joystick.classList.remove('active');
+    knob.style.transform = 'translate(-50%, -50%)';
+    motorLVal = 0;
+    motorRVal = 0;
+    updateMotorDisplay();
+  }
+});
+
+joystick.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  dragging = true;
+  joystick.classList.add('active');
+  handleJoystick(e);
+}, { passive: false });
+
+joystick.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (dragging) handleJoystick(e);
+}, { passive: false });
+
+joystick.addEventListener('touchend', () => {
+  dragging = false;
+  joystick.classList.remove('active');
+  knob.style.transform = 'translate(-50%, -50%)';
+  motorLVal = 0;
+  motorRVal = 0;
+  updateMotorDisplay();
+});
+
+// ── Sensor Simulation ──
+function startSimulation() {
+  setInterval(() => {
+    // Distance sensor
+    const dist = Math.round(15 + Math.random() * 80);
+    const distEl = document.getElementById('sensorDist');
+    distEl.innerHTML = dist + '<span style="font-size:13px;color:var(--text-muted);"> cm</span>';
+    distEl.className = 'sensor-value' + (dist < 20 ? ' danger' : dist < 35 ? ' warn' : '');
+
+    // IR
+    const ir = Math.random() > 0.7 ? 0 : 1;
+    document.getElementById('sensorIR').textContent = ir;
+    document.getElementById('sensorIR').className = 'sensor-value' + (ir === 0 ? ' warn' : '');
+
+    // Speed based on motor
+    const avgMotor = (Math.abs(motorLVal) + Math.abs(motorRVal)) / 2;
+    const speed = (avgMotor * 0.8).toFixed(1);
+    document.getElementById('sensorSpeed').innerHTML = speed + '<span style="font-size:13px;color:var(--text-muted);"> m/s</span>';
+
+    // Encoders
+    encL += Math.round(Math.abs(motorLVal) * 12);
+    encR += Math.round(Math.abs(motorRVal) * 12);
+    document.getElementById('encL').textContent = encL + ' ticks';
+    document.getElementById('encR').textContent = encR + ' ticks';
+  }, 500);
+}
+
+// ── Logging ──
+function addLog(type, msg) {
+  const container = document.getElementById('logEntries');
+  const now = new Date();
+  const time = now.toTimeString().slice(0, 8);
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + type;
+  entry.innerHTML = `<span class="log-time">${time}</span><span class="log-msg">${msg}</span>`;
+  container.appendChild(entry);
+  container.scrollTop = container.scrollHeight;
+
+  // Keep last 50
+  while (container.children.length > 50) {
+    container.removeChild(container.firstChild);
+  }
+}
+
+// ── WiFi Modal ──
+let selectedNetwork = '';
+
+function openModal(network) {
+  selectedNetwork = network;
+  document.getElementById('modalNetwork').textContent = network;
+  document.getElementById('modalTitle').textContent = `Connect to ${network}`;
+  document.getElementById('modalPassword').value = '';
+  document.getElementById('wifiModal').classList.add('visible');
+  setTimeout(() => document.getElementById('modalPassword').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('wifiModal').classList.remove('visible');
+}
+
+function connectWifi() {
+  closeModal();
+  addLog('info', `Connecting to ${selectedNetwork}...`);
+
+  setTimeout(() => {
+    addLog('success', `WiFi connected — ${selectedNetwork}`);
+    addLog('info', 'IP: 192.168.1.47 (local network)');
+    addLog('success', 'Internet available — AI features unlocked');
+    goOnline(selectedNetwork);
+  }, 1500);
+}
+
+function goOnline(network) {
+  isOnline = true;
+
+  // Update connection badge
+  const badge = document.getElementById('connBadge');
+  badge.className = 'connection-badge online';
+  document.getElementById('connLabel').textContent = network;
+
+  // Update WiFi status
+  document.getElementById('wifiStatusTitle').textContent = 'Connected';
+  document.getElementById('wifiStatusSub').textContent = `${network} — 192.168.1.47`;
+  document.getElementById('wifiStatus').querySelector('.wifi-status-icon').textContent = '&#128246;';
+
+  // Mark network as connected
+  document.querySelectorAll('.wifi-network').forEach(n => {
+    if (n.querySelector('.wifi-network-name').textContent === network) {
+      n.classList.add('connected');
+      n.innerHTML = `
+        <div class="wifi-signal">&#9636;</div>
+        <div class="wifi-network-name">${network}</div>
+        <div class="wifi-connected-check">&#10003;</div>
+      `;
+    }
+  });
+
+  // Unlock AI tab
+  document.getElementById('aiLock').style.display = 'none';
+  document.getElementById('aiLocked').style.display = 'none';
+  document.getElementById('aiChat').style.display = 'flex';
+
+  // AI welcome
+  addAiMsg('assistant', "I'm connected to your HERD-7X3K robot. I can see the distance sensor reading and motor state. What would you like to do?");
+}
+
+// ── AI Chat ──
+const aiResponses = [
+  "The ultrasonic sensor shows an obstacle about {dist}cm ahead. Want me to set up automatic obstacle avoidance?",
+  "Your left motor is drawing slightly more current than the right. The wheel might be catching on something. Try lifting the robot and running the motors to check.",
+  "I can see the IR sensor is detecting a line. Want me to write a simple line-following algorithm? It would use the IR reading to adjust motor speeds in a feedback loop.",
+  "Here's what your robot sees right now: clear path ahead at {dist}cm, both encoders tracking evenly at {encL} and {encR} ticks. Everything looks good.",
+  "To make the robot drive in a square pattern, I'd send: forward 0.5s, turn right 90 degrees (using encoder ticks to measure), repeat 4 times. Want me to run that?",
+];
+let aiResponseIdx = 0;
+
+function addAiMsg(role, text) {
+  const container = document.getElementById('aiMessages');
+  const msg = document.createElement('div');
+  msg.className = 'ai-msg ' + role;
+  msg.textContent = text;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendAiMsg() {
+  const input = document.getElementById('aiInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  addAiMsg('user', text);
+  input.value = '';
+
+  setTimeout(() => {
+    const dist = document.getElementById('sensorDist').textContent.replace(/[^\d]/g, '');
+    let response = aiResponses[aiResponseIdx % aiResponses.length];
+    response = response.replace('{dist}', dist).replace('{encL}', encL).replace('{encR}', encR);
+    addAiMsg('assistant', response);
+    aiResponseIdx++;
+  }, 800 + Math.random() * 600);
+}
+
+// ── Keyboard Shortcuts ──
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  const speed = 0.7;
+  switch(e.key) {
+    case 'ArrowUp':
+    case 'w':
+      motorLVal = speed; motorRVal = speed;
+      updateMotorDisplay();
+      knob.style.transform = 'translate(-50%, calc(-50% - 30px))';
+      break;
+    case 'ArrowDown':
+    case 's':
+      motorLVal = -speed; motorRVal = -speed;
+      updateMotorDisplay();
+      knob.style.transform = 'translate(-50%, calc(-50% + 30px))';
+      break;
+    case 'ArrowLeft':
+    case 'a':
+      motorLVal = -speed * 0.5; motorRVal = speed * 0.5;
+      updateMotorDisplay();
+      knob.style.transform = 'translate(calc(-50% - 30px), -50%)';
+      break;
+    case 'ArrowRight':
+    case 'd':
+      motorLVal = speed * 0.5; motorRVal = -speed * 0.5;
+      updateMotorDisplay();
+      knob.style.transform = 'translate(calc(-50% + 30px), -50%)';
+      break;
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)) {
+    motorLVal = 0; motorRVal = 0;
+    updateMotorDisplay();
+    knob.style.transform = 'translate(-50%, -50%)';
+  }
+});
+</script>
+</body>
+</html>
